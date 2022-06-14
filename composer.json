@@ -1,0 +1,32 @@
+{
+    "name": "hryvinskyi/magento2-page-speed",
+    "version": "1.0.0",
+    "description": "N/A",
+    "type": "magento2-module",
+    "require": {
+        "ext-dom": "*",
+        "ext-simplexml": "*",
+        "magento/framework": "*",
+        "hryvinskyi/magento2-page-speed-api": "1.0.*"
+    },
+    "require-dev": {
+        "roave/security-advisories": "dev-latest"
+    },
+    "authors": [
+        {
+            "name": "Volodymyr Hryvinskyi",
+            "email": "volodymyr@hryvinskyi.com"
+        }
+    ],
+    "license": [
+        "MIT"
+    ],
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "Hryvinskyi\\PageSpeed\\": ""
+        }
+    }
+}

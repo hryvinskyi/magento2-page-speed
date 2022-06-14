@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<!--
+  ~ Copyright (c) 2022. All rights reserved.
+  ~ @author: Volodymyr Hryvinskyi <mailto:volodymyr@hryvinskyi.com>
+  -->
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <preference for="Hryvinskyi\PageSpeedApi\Model\CacheInterface"
+                type="Hryvinskyi\PageSpeed\Model\Cache"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\IsInternalUrlInterface"
+                type="Hryvinskyi\PageSpeed\Model\IsInternalUrl"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\GetLocalPathFromUrlInterface"
+                type="Hryvinskyi\PageSpeed\Model\GetLocalPathFromUrl"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\GetFileContentByUrlInterface"
+                type="Hryvinskyi\PageSpeed\Model\GetFileContentByUrl"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Finder\JsInterface" type="Hryvinskyi\PageSpeed\Model\Finder\Js"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Finder\CssInterface" type="Hryvinskyi\PageSpeed\Model\Finder\Css"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Finder\HtmlCommentInterface"
+                type="Hryvinskyi\PageSpeed\Model\Finder\HtmlComment"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Finder\Result\RawInterface"
+                type="Hryvinskyi\PageSpeed\Model\Finder\Result\Raw"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Finder\Result\TagInterface"
+                type="Hryvinskyi\PageSpeed\Model\Finder\Result\Tag"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Html\ReplaceIntoHtmlInterface"
+                type="Hryvinskyi\PageSpeed\Model\Html\ReplaceIntoHtml"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Html\InsertStringBeforeBodyEndInterface"
+                type="Hryvinskyi\PageSpeed\Model\Html\InsertStringBeforeBodyEnd"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Html\InsertStringBeforeHeadEndInterface"
+                type="Hryvinskyi\PageSpeed\Model\Html\InsertStringBeforeHeadEnd"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Html\IsTagMustBeIgnoredInterface"
+                type="Hryvinskyi\PageSpeed\Model\Html\IsTagMustBeIgnored"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\GetStringLengthFromUrlInterface"
+                type="Hryvinskyi\PageSpeed\Model\GetStringLengthFromUrl"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\GetLastFileChangeTimestampForUrlListInterface"
+                type="Hryvinskyi\PageSpeed\Model\GetLastFileChangeTimestampForUrlList"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\PutContentInFileInterface"
+                type="Hryvinskyi\PageSpeed\Model\PutContentInFile"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\GetRequireJsBuildScriptUrlInterface"
+                type="Hryvinskyi\PageSpeed\Model\GetRequireJsBuildScriptUrl"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\Html\GetStringFromHtmlInterface"
+                type="Hryvinskyi\PageSpeed\Model\Html\GetStringFromHtml"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Model\MergerInterface" type="Hryvinskyi\PageSpeed\Model\AbstractMerger"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\GetContentFromTagInterface"
+                type="Hryvinskyi\PageSpeed\Model\GetContentFromTag"/>
+    <preference for="Hryvinskyi\PageSpeedApi\Api\CreateFileByContentInterface"
+                type="Hryvinskyi\PageSpeed\Model\CreateFileByContent"/>
+</config>
