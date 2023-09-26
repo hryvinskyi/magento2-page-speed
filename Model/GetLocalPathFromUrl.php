@@ -19,10 +19,12 @@ class GetLocalPathFromUrl implements GetLocalPathFromUrlInterface
     private StoreManagerInterface $storeManager;
     private Filesystem $filesystem;
 
-    /**
-     * @param StoreManagerInterface $storeManager
-     * @param Filesystem $filesystem
-     */
+    public const URL_TYPES = [
+        UrlInterface::URL_TYPE_MEDIA => DirectoryList::MEDIA,
+        UrlInterface::URL_TYPE_STATIC => DirectoryList::STATIC_VIEW,
+        UrlInterface::URL_TYPE_WEB => DirectoryList::ROOT
+    ];
+
     public function __construct(StoreManagerInterface $storeManager, Filesystem $filesystem)
     {
         $this->storeManager = $storeManager;
@@ -30,52 +32,100 @@ class GetLocalPathFromUrl implements GetLocalPathFromUrlInterface
     }
 
     /**
-     * @inheridoc
+     * Removes the static version from the given URL.
+     *
+     * @param string $url The URL from which to remove the static version.
+     *
+     * @return string The URL without the static version.
      */
-    public function execute(string $url): string
+    private function removeStatic(string $url): string
     {
-        $baseUrlList = [
-            [
-                $this->storeManager->getStore()->getBaseUrl(UrlInterface::URL_TYPE_MEDIA),
-                $this->filesystem->getDirectoryRead(DirectoryList::MEDIA)->getAbsolutePath()
-            ],
-            [
-                $this->storeManager->getStore()->getBaseUrl(UrlInterface::URL_TYPE_MEDIA, true),
-                $this->filesystem->getDirectoryRead(DirectoryList::MEDIA)->getAbsolutePath()
-            ],
-            [
-                $this->storeManager->getStore()->getBaseUrl(UrlInterface::URL_TYPE_STATIC),
-                $this->filesystem->getDirectoryRead(DirectoryList::STATIC_VIEW)->getAbsolutePath()
-            ],
-            [
-                $this->storeManager->getStore()->getBaseUrl(UrlInterface::URL_TYPE_STATIC, true),
-                $this->filesystem->getDirectoryRead(DirectoryList::STATIC_VIEW)->getAbsolutePath()
-            ],
-            [
-                $this->storeManager->getStore()->getBaseUrl(UrlInterface::URL_TYPE_WEB),
-                $this->filesystem->getDirectoryRead(DirectoryList::ROOT)->getAbsolutePath()
-            ],
-            [
-                $this->storeManager->getStore()->getBaseUrl(UrlInterface::URL_TYPE_WEB, true),
-                $this->filesystem->getDirectoryRead(DirectoryList::ROOT)->getAbsolutePath()
-            ],
-        ];
+        $pattern = '/\/static\/version\d+\//';
+        return preg_replace($pattern, '/static/', $url);
+    }
 
-        foreach ($baseUrlList as $baseUrlData) {
-            if (strpos($url, $baseUrlData[0]) === 0) {
-                $url = str_replace($baseUrlData[0], $baseUrlData[1], $url);
-                break;
+    /**
+     * Retrieves a list of base URLs along with their corresponding absolute paths for media files.
+     *
+     * @return array An array of base URLs and absolute paths.
+     */
+    private function getBaseUrlList(): array
+    {
+        $baseUrlList = [];
+
+        foreach (self::URL_TYPES as $urlType => $directoryType) {
+            $baseUrlList[] = [
+                $this->storeManager->getStore()->getBaseUrl($urlType),
+                $this->filesystem->getDirectoryRead($directoryType)->getAbsolutePath()
+            ];
+        }
+
+        return $baseUrlList;
+    }
+
+    /**
+     * Processes the base URL list and replaces the base URL in the given URL with the corresponding replacement URL.
+     *
+     * @param string $url The URL to process.
+     *
+     * @return string The modified URL with the base URL replaced.
+     */
+    private function processBaseUrlList(string $url): string
+    {
+        foreach ($this->getBaseUrlList() as $baseUrlData) {
+            if (strpos($url, $this->removeStatic($baseUrlData[0])) === 0) {
+                return str_replace($this->removeStatic($baseUrlData[0]), $this->removeStatic($baseUrlData[1]), $url);
             }
         }
 
+        return $url;
+    }
+
+    /**
+     * Removes the fragment from the given URL.
+     *
+     * @param string $url The URL from which to remove the fragment.
+     *
+     * @return string The URL without the fragment.
+     */
+    private function removeFragment(string $url): string
+    {
         if ($fragment = parse_url($url, PHP_URL_FRAGMENT)) {
             $url = str_replace('#' . $fragment, '', $url);
         }
 
+        return $url;
+    }
+
+    /**
+     * Removes the query string from the given URL and returns the modified URL.
+     *
+     * @param string $url The URL to be processed.
+     *
+     * @return string The modified URL.
+     */
+    private function removeQuery(string $url): string
+    {
         if ($query = parse_url($url, PHP_URL_QUERY)) {
             $url = str_replace('?' . $query, '', $url);
         }
 
         return rtrim($url, '?#');
+    }
+
+    /**
+     * Executes a series of operations on the given URL and returns the modified URL.
+     *
+     * @param string $url The URL to be processed.
+     *
+     * @return string The modified URL.
+     */
+    public function execute(string $url): string
+    {
+        $url = $this->removeStatic($url);
+        $url = $this->processBaseUrlList($url);
+        $url = $this->removeFragment($url);
+
+        return $this->removeQuery($url);
     }
 }
