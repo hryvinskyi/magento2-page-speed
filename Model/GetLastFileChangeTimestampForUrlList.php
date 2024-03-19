@@ -28,13 +28,13 @@ class GetLastFileChangeTimestampForUrlList implements GetLastFileChangeTimestamp
      */
     public function execute(array $urls): int
     {
-        $timestampList = [0];
+        $timestampList = 0;
 
         foreach ($urls as $url) {
             $filePath = $this->getLocalPathFromUrl->execute($url);
-            $timestampList[] = @filemtime($filePath);
+            $timestampList += (int)@filemtime($filePath);
         }
 
-        return max($timestampList);
+        return $timestampList;
     }
 }
