@@ -1,6 +1,6 @@
 <?php
 /**
- * Copyright (c) 2022. All rights reserved.
+ * Copyright (c) 2025. All rights reserved.
  * @author: Volodymyr Hryvinskyi <mailto:volodymyr@hryvinskyi.com>
  */
 
@@ -18,6 +18,7 @@ class GetLocalPathFromUrl implements GetLocalPathFromUrlInterface
 {
     private StoreManagerInterface $storeManager;
     private Filesystem $filesystem;
+    private array $cache = [];
 
     public const URL_TYPES = [
         UrlInterface::URL_TYPE_MEDIA => DirectoryList::MEDIA,
@@ -122,10 +123,15 @@ class GetLocalPathFromUrl implements GetLocalPathFromUrlInterface
      */
     public function execute(string $url): string
     {
+        if (isset($this->cache[$url])) {
+            return $this->cache[$url];
+        }
+
         $url = $this->removeStatic($url);
         $url = $this->processBaseUrlList($url);
         $url = $this->removeFragment($url);
+        $this->cache[$url] = $this->removeQuery($url);
 
-        return $this->removeQuery($url);
+        return $this->cache[$url];
     }
 }
