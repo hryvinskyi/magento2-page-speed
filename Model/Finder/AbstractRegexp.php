@@ -58,6 +58,7 @@ abstract class AbstractRegexp implements FinderInterface
         int $start = null,
         int $end = null
     ): array {
+        // Attempt regex matching with current PCRE limits
         $findResult = preg_match_all(
             $needle,
             $haystack,
@@ -65,8 +66,20 @@ abstract class AbstractRegexp implements FinderInterface
             PREG_SET_ORDER | PREG_OFFSET_CAPTURE
         );
 
+        // If regex fails due to PCRE limits, return empty result set
         if ($findResult === false) {
-            throw new \Exception('preg_match_all error in ' . self::class . ', error code: ' . preg_last_error());
+            $errorCode = (int)preg_last_error();
+
+            // PREG_BACKTRACK_LIMIT_ERROR (2) or PREG_RECURSION_LIMIT_ERROR (3)
+            if ($errorCode === PREG_BACKTRACK_LIMIT_ERROR || $errorCode === PREG_RECURSION_LIMIT_ERROR) {
+                return [];
+            }
+
+            throw new \Exception(
+                'preg_match_all error in ' . self::class .
+                ', error code: ' . $errorCode .
+                ' Needle: ' . $needle
+            );
         }
 
         $result = [];
