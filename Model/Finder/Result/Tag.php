@@ -1,18 +1,17 @@
 <?php
 /**
- * Copyright (c) 2022. All rights reserved.
+ * Copyright (c) 2022-2026. All rights reserved.
  * @author: Volodymyr Hryvinskyi <mailto:volodymyr@hryvinskyi.com>
  */
 
 namespace Hryvinskyi\PageSpeed\Model\Finder\Result;
 
+use Hryvinskyi\Base\Helper\Html;
 use Hryvinskyi\PageSpeedApi\Api\Finder\Result\TagInterface;
-use function _PHPStan_c862bb974\RingCentral\Psr7\str;
 
 class Tag extends Raw implements TagInterface
 {
     private array $attributes = [];
-    private string $contentWithoutTag;
 
     /**
      * @inheridoc
@@ -29,14 +28,7 @@ class Tag extends Raw implements TagInterface
     {
         parent::setContent($content);
 
-        $dom = new \DOMDocument();
-        @$dom->loadHTML('<html><body>' . $this->getContent() . '</body></html>');
-        $xml = simplexml_import_dom($dom);
-        $tag = $xml->xpath('body/*');
-        foreach ($tag[0]->attributes() as $key => $value) {
-            $this->attributes[$key] = $value->__toString();
-        }
-        unset($dom);
+        $this->attributes = $this->parseAttributesFromOpeningTag($content);
     }
 
     /**
@@ -48,25 +40,85 @@ class Tag extends Raw implements TagInterface
     }
 
     /**
-     * @param array $attributes
-     * @return string
+     * Update attributes on the opening tag without parsing inner content.
+     *
+     * @param array<string, string|null> $attributes Attributes to set or remove (null value removes the attribute).
+     *
+     * @return string The full tag content with updated attributes.
      */
     public function getContentWithUpdatedAttribute(array $attributes): string
     {
-        $dom = new \DOMDocument();
-        @$dom->loadHTML('<?xml encoding="utf-8" ?><html><body>' . $this->getContent() . '</body></html>');
-        $xpath = new \DOMXpath($dom);
-        $tagList = $xpath->query('/html/body/*');
-        $tag = $tagList->item(0);
-        foreach ($attributes as $key => $value) {
-            if (null === $value && isset($tag)) {
-                $tag->removeAttribute($key);
-                continue;
-            }
+        $content = $this->getContent();
 
-            $tag->setAttribute($key, $value);
+        if (!preg_match('/^(<\w+)((?:\s+[^>]*)?)>/s', $content, $matches)) {
+            return $content;
         }
 
-        return $dom->saveHTML($tag);
+        $openingTagStart = $matches[1];
+        $existingAttrsString = $matches[2];
+        $openingTagFull = $matches[0];
+        $restOfContent = substr($content, strlen($openingTagFull));
+
+        $currentAttributes = $this->parseAttributeString($existingAttrsString);
+
+        foreach ($attributes as $key => $value) {
+            if ($value === null) {
+                unset($currentAttributes[$key]);
+            } else {
+                $currentAttributes[$key] = $value;
+            }
+        }
+
+        return $openingTagStart . Html::renderTagAttributes($currentAttributes) . '>' . $restOfContent;
+    }
+
+    /**
+     * Parse attributes from the opening tag of an HTML element string.
+     *
+     * @param string $content The full HTML element string.
+     *
+     * @return array<string, string> Parsed attribute key-value pairs.
+     */
+    private function parseAttributesFromOpeningTag(string $content): array
+    {
+        if (!preg_match('/^<\w+((?:\s+[^>]*)?)>/s', $content, $matches)) {
+            return [];
+        }
+
+        return $this->parseAttributeString($matches[1]);
+    }
+
+    /**
+     * Parse an attribute string into key-value pairs.
+     *
+     * @param string $attrString The attribute portion of an opening tag (e.g. ' type="text" defer').
+     *
+     * @return array<string, string> Parsed attribute key-value pairs.
+     */
+    private function parseAttributeString(string $attrString): array
+    {
+        $attributes = [];
+
+        preg_match_all(
+            '/(\w[\w\-]*)(?:\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|(\S+)))?/',
+            $attrString,
+            $attrMatches,
+            PREG_SET_ORDER
+        );
+
+        foreach ($attrMatches as $match) {
+            $key = $match[1];
+            if (isset($match[4]) && $match[4] !== '') {
+                $attributes[$key] = $match[4];
+            } elseif (isset($match[3]) && $match[3] !== '') {
+                $attributes[$key] = $match[3];
+            } elseif (isset($match[2])) {
+                $attributes[$key] = $match[2];
+            } else {
+                $attributes[$key] = $key;
+            }
+        }
+
+        return $attributes;
     }
 }
