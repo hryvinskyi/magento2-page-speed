@@ -17,18 +17,27 @@ use Hryvinskyi\PageSpeedApi\Api\Finder\Result\TagInterfaceFactory;
 
 class Js extends AbstractRegexp implements JsInterface
 {
-    public array $needles = [
-        "<script((?! type=).)*?>.*?<\/script>",
-        "<script*?>.*?<\/script>",
-        "<script[^>\w]*?>.*?<\/script>",
-        "<script[^>]*?src=[^>]+?>.*?<\/script>",
-        "<script[^>]*?[\"']text\/javascript[\"'][^>]*?>.*?<\/script>",
-        "<script[^>]*?[\"']application\/javascript[\"'][^>]*?>.*?<\/script>",
-        "<script[^>]*?[\"']javascript[\"'][^>]*?>.*?<\/script>",
-        "<script[^>]*?text\/javascript[^>]*?>.*?<\/script>",
-        "<script[^>]*?application\/javascript[^>]*?>.*?<\/script>",
-        "<script[^>]*?javascript[^>]*?>.*?<\/script>",
+    private const SCRIPT_PATTERN = '/<script\b[^>]*>.*?<\/script>/is';
+
+    private const JAVASCRIPT_TYPES = [
+        '' => true,
+        'text/javascript' => true,
+        'application/javascript' => true,
+        'application/ecmascript' => true,
+        'text/ecmascript' => true,
+        'javascript' => true,
     ];
+
+    /**
+     * Kept for backward-compat with consumers that read $needles. The single
+     * unified pattern above is what findAll() actually uses.
+     *
+     * @var string[]
+     */
+    public array $needles = [
+        '<script\b[^>]*>.*?<\/script>',
+    ];
+
     private TagInterfaceFactory $tagFactory;
     private HtmlCommentInterface $htmlComment;
 
@@ -55,13 +64,42 @@ class Js extends AbstractRegexp implements JsInterface
      */
     public function findAll(string $haystack, int $start = null, int $end = null): array
     {
-        $pattern = "/" . implode('|', $this->needles) . "/is";
-        /** @var TagInterface[] $result */
+        $matchCount = @preg_match_all(
+            self::SCRIPT_PATTERN,
+            $haystack,
+            $matches,
+            PREG_OFFSET_CAPTURE
+        );
 
-        $result = $this->findByNeedle($pattern, $haystack, $start, $end);
-        $result = $this->excludeTagsWhichWithinHtmlComment($result, $haystack);
+        if ($matchCount === false || $matchCount === 0) {
+            return [];
+        }
 
-        return array_values($result);
+        $tagList = [];
+        foreach ($matches[0] as [$content, $pos]) {
+            if ($start !== null && $start > $pos) {
+                continue;
+            }
+            if ($end !== null && $end < $pos) {
+                continue;
+            }
+            if ($this->isJavaScriptScript($content) === false) {
+                continue;
+            }
+
+            $tagList[] = $this->processResult($content, $pos);
+        }
+
+        if ($tagList === []) {
+            return [];
+        }
+
+        $tagList = $this->excludeTagsWhichWithinHtmlComment($tagList, $haystack);
+        if ($tagList === []) {
+            return [];
+        }
+
+        return array_values($this->excludeTagsWhichWithinAttributeValue($tagList, $haystack));
     }
 
     /**
@@ -72,9 +110,7 @@ class Js extends AbstractRegexp implements JsInterface
     {
         $result = $this->findAll($haystack, $start, $end);
         foreach ($result as $key => $tag) {
-            /** @var TagInterface $tag */
-            $attributes = $tag->getAttributes();
-            if (array_key_exists('src', $attributes)) {
+            if (array_key_exists('src', $tag->getAttributes())) {
                 unset($result[$key]);
             }
         }
@@ -88,9 +124,7 @@ class Js extends AbstractRegexp implements JsInterface
     {
         $result = $this->findAll($haystack, $start, $end);
         foreach ($result as $key => $tag) {
-            /** @var TagInterface $tag */
-            $attributes = $tag->getAttributes();
-            if (!array_key_exists('src', $attributes)) {
+            if (array_key_exists('src', $tag->getAttributes()) === false) {
                 unset($result[$key]);
             }
         }
@@ -115,6 +149,37 @@ class Js extends AbstractRegexp implements JsInterface
     }
 
     /**
+     * Type check on the raw matched text — avoids triggering attribute
+     * parsing for non-JS payloads such as <script type="text/x-magento-init">,
+     * <script type="application/ld+json">, etc.
+     *
+     * @param string $content
+     *
+     * @return bool
+     */
+    private function isJavaScriptScript(string $content): bool
+    {
+        $openTagEnd = strpos($content, '>');
+        if ($openTagEnd === false) {
+            return false;
+        }
+
+        $openTag = substr($content, 0, $openTagEnd);
+
+        if (preg_match(
+            '/\btype\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))/i',
+            $openTag,
+            $matches
+        ) !== 1) {
+            return true;
+        }
+
+        $type = strtolower(trim((string)($matches[1] !== '' ? $matches[1] : ($matches[2] !== '' ? $matches[2] : ($matches[3] ?? '')))));
+
+        return isset(self::JAVASCRIPT_TYPES[$type]);
+    }
+
+    /**
      * @param TagInterface[] $tagList
      * @param string $haystack
      *
@@ -124,11 +189,52 @@ class Js extends AbstractRegexp implements JsInterface
     private function excludeTagsWhichWithinHtmlComment(array $tagList, string $haystack): array
     {
         $htmlCommentList = $this->htmlComment->findAll($haystack);
+        if ($htmlCommentList === []) {
+            return $tagList;
+        }
+
+        // Sort comments by start so we can break out of the inner loop early.
+        usort(
+            $htmlCommentList,
+            static fn(RawInterface $a, RawInterface $b): int => $a->getStart() <=> $b->getStart()
+        );
+
         foreach ($tagList as $key => $tag) {
             $start = $tag->getStart();
             foreach ($htmlCommentList as $htmlComment) {
-                /** @var RawInterface $htmlComment */
-                if ($htmlComment->getStart() < $start && $htmlComment->getEnd() > $start) {
+                if ($htmlComment->getStart() > $start) {
+                    break;
+                }
+                if ($htmlComment->getEnd() > $start) {
+                    unset($tagList[$key]);
+                    break;
+                }
+            }
+        }
+
+        return $tagList;
+    }
+
+    /**
+     * Skip script tags that live inside an HTML attribute value — e.g. the
+     * unlikely but possible <div data-x="<script>…</script>"> case. Walk back
+     * from the tag start to the nearest unescaped angle bracket: a "<" before a
+     * ">" means we're inside an unclosed opening tag, i.e. an attribute value.
+     *
+     * @param TagInterface[] $tagList
+     * @param string $haystack
+     *
+     * @return TagInterface[]
+     */
+    private function excludeTagsWhichWithinAttributeValue(array $tagList, string $haystack): array
+    {
+        foreach ($tagList as $key => $tag) {
+            for ($i = $tag->getStart() - 1; $i >= 0; $i--) {
+                $char = $haystack[$i];
+                if ($char === '>') {
+                    break;
+                }
+                if ($char === '<') {
                     unset($tagList[$key]);
                     break;
                 }
