@@ -78,7 +78,7 @@ abstract class AbstractMerger implements MergerInterface
         array $srcFiles,
         string $targetFile,
         bool $mustMerge = false,
-        \Closure $beforeMergeCallback = null,
+        ?\Closure $beforeMergeCallback = null,
         array $extensionsFilter = []
     ) {
         try {

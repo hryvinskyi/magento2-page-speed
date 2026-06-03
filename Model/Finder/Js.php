@@ -62,7 +62,7 @@ class Js extends AbstractRegexp implements JsInterface
      * @return TagInterface[]
      * @throws \Exception
      */
-    public function findAll(string $haystack, int $start = null, int $end = null): array
+    public function findAll(string $haystack, ?int $start = null, ?int $end = null): array
     {
         $matchCount = @preg_match_all(
             self::SCRIPT_PATTERN,
@@ -106,7 +106,7 @@ class Js extends AbstractRegexp implements JsInterface
      * @inheridoc
      * @throws \Exception
      */
-    public function findInline(string $haystack, int $start = null, int $end = null): array
+    public function findInline(string $haystack, ?int $start = null, ?int $end = null): array
     {
         $result = $this->findAll($haystack, $start, $end);
         foreach ($result as $key => $tag) {
@@ -120,7 +120,7 @@ class Js extends AbstractRegexp implements JsInterface
     /**
      * @inheridoc
      */
-    public function findExternal(string $haystack, int $start = null, int $end = null): array
+    public function findExternal(string $haystack, ?int $start = null, ?int $end = null): array
     {
         $result = $this->findAll($haystack, $start, $end);
         foreach ($result as $key => $tag) {

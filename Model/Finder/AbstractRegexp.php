@@ -33,7 +33,7 @@ abstract class AbstractRegexp implements FinderInterface
      * @return RawInterface[]
      * @throws \Exception
      */
-    public function findAll(string $haystack, int $start = null, int $end = null): array
+    public function findAll(string $haystack, ?int $start = null, ?int $end = null): array
     {
         $result = [[]];
         foreach ($this->needles as $needle) {
@@ -55,8 +55,8 @@ abstract class AbstractRegexp implements FinderInterface
     public function findByNeedle(
         string $needle,
         string $haystack,
-        int $start = null,
-        int $end = null
+        ?int $start = null,
+        ?int $end = null
     ): array {
         // Attempt regex matching with current PCRE limits
         $findResult = preg_match_all(

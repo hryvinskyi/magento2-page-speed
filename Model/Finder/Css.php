@@ -43,7 +43,7 @@ class Css extends AbstractRegexp implements CssInterface
      * @return TagInterface[]
      * @throws \Exception
      */
-    public function findAll(string $haystack, int $start = null, int $end = null): array
+    public function findAll(string $haystack, ?int $start = null, ?int $end = null): array
     {
         $result = array_merge(
             $this->findExternal($haystack, $start, $end),
