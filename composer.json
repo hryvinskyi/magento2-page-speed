@@ -1,12 +1,14 @@
 {
     "name": "hryvinskyi/magento2-page-speed",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "description": "N/A",
     "type": "magento2-module",
     "require": {
         "ext-dom": "*",
         "ext-simplexml": "*",
         "magento/framework": "*",
+        "magento/module-store": "*",
+        "hryvinskyi/magento2-base": "^3.0",
         "hryvinskyi/magento2-page-speed-api": "1.0.*"
     },
     "require-dev": {

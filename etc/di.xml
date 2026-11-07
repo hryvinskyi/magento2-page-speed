@@ -43,6 +43,8 @@
     <preference for="Hryvinskyi\PageSpeedApi\Model\MergerInterface" type="Hryvinskyi\PageSpeed\Model\AbstractMerger"/>
     <preference for="Hryvinskyi\PageSpeedApi\Api\GetContentFromTagInterface"
                 type="Hryvinskyi\PageSpeed\Model\GetContentFromTag"/>
+    <preference for="Hryvinskyi\PageSpeed\Api\Html\OpeningTagParserInterface"
+                type="Hryvinskyi\PageSpeed\Model\Html\OpeningTagParser"/>
     <preference for="Hryvinskyi\PageSpeedApi\Api\CreateFileByContentInterface"
                 type="Hryvinskyi\PageSpeed\Model\CreateFileByContent"/>
 </config>

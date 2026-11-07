@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\PageSpeed\Model\Finder;
 
+use Hryvinskyi\PageSpeed\Api\Html\OpeningTagParserInterface;
 use Hryvinskyi\PageSpeedApi\Api\Finder\HtmlCommentInterface;
 use Hryvinskyi\PageSpeedApi\Api\Finder\JsInterface;
 use Hryvinskyi\PageSpeedApi\Api\Finder\Result\RawInterface;
@@ -38,33 +39,30 @@ class Js extends AbstractRegexp implements JsInterface
         '<script\b[^>]*>.*?<\/script>',
     ];
 
-    private TagInterfaceFactory $tagFactory;
-    private HtmlCommentInterface $htmlComment;
-
     /**
-     * @param RawInterfaceFactory $rawFactory
-     * @param TagInterfaceFactory $tagFactory
-     * @param HtmlCommentInterface $htmlComment
+     * @param RawInterfaceFactory $rawFactory creates the plain match each tag is built from
+     * @param TagInterfaceFactory $tagFactory creates the tags the finder returns
+     * @param HtmlCommentInterface $htmlComment finds the comments whose content is not a script
+     * @param OpeningTagParserInterface $openingTagParser finds the opening tag of a script
      */
     public function __construct(
         RawInterfaceFactory $rawFactory,
-        TagInterfaceFactory $tagFactory,
-        HtmlCommentInterface $htmlComment
+        private readonly TagInterfaceFactory $tagFactory,
+        private readonly HtmlCommentInterface $htmlComment,
+        private readonly OpeningTagParserInterface $openingTagParser
     ) {
         parent::__construct($rawFactory);
-        $this->tagFactory = $tagFactory;
-        $this->htmlComment = $htmlComment;
     }
 
     /**
-     * @inheridoc
+     * @inheritDoc
      *
      * @return TagInterface[]
      * @throws \Exception
      */
     public function findAll(string $haystack, ?int $start = null, ?int $end = null): array
     {
-        $matchCount = @preg_match_all(
+        $matchCount = preg_match_all(
             self::SCRIPT_PATTERN,
             $haystack,
             $matches,
@@ -103,7 +101,7 @@ class Js extends AbstractRegexp implements JsInterface
     }
 
     /**
-     * @inheridoc
+     * @inheritDoc
      * @throws \Exception
      */
     public function findInline(string $haystack, ?int $start = null, ?int $end = null): array
@@ -118,7 +116,7 @@ class Js extends AbstractRegexp implements JsInterface
     }
 
     /**
-     * @inheridoc
+     * @inheritDoc
      */
     public function findExternal(string $haystack, ?int $start = null, ?int $end = null): array
     {
@@ -132,14 +130,13 @@ class Js extends AbstractRegexp implements JsInterface
     }
 
     /**
-     * @inheridoc
+     * @inheritDoc
      * @throws \Exception
      */
     public function processResult(string $source, int $pos): TagInterface
     {
         $raw = parent::processResult($source, $pos);
 
-        /** @var TagInterface $result */
         $result = $this->tagFactory->create();
         $result->setContent($raw->getContent());
         $result->setStart($raw->getStart());
@@ -159,27 +156,24 @@ class Js extends AbstractRegexp implements JsInterface
      */
     private function isJavaScriptScript(string $content): bool
     {
-        $openTagEnd = strpos($content, '>');
-        if ($openTagEnd === false) {
+        $openingTag = $this->openingTagParser->parse($content);
+        if ($openingTag === null) {
             return false;
         }
 
-        $openTag = substr($content, 0, $openTagEnd);
-
-        if (preg_match(
-            '/\btype\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))/i',
-            $openTag,
-            $matches
-        ) !== 1) {
-            return true;
+        foreach ($this->openingTagParser->findAttributes($openingTag['attributes']) as $attribute) {
+            if (strtolower($attribute['name']) === 'type') {
+                return $attribute['value'] === $attribute['name']
+                    || isset(self::JAVASCRIPT_TYPES[strtolower(trim($attribute['value']))]);
+            }
         }
 
-        $type = strtolower(trim((string)($matches[1] !== '' ? $matches[1] : ($matches[2] !== '' ? $matches[2] : ($matches[3] ?? '')))));
-
-        return isset(self::JAVASCRIPT_TYPES[$type]);
+        return true;
     }
 
     /**
+     * Skips the script tags that stand inside an HTML comment.
+     *
      * @param TagInterface[] $tagList
      * @param string $haystack
      *
@@ -196,7 +190,7 @@ class Js extends AbstractRegexp implements JsInterface
         // Sort comments by start so we can break out of the inner loop early.
         usort(
             $htmlCommentList,
-            static fn(RawInterface $a, RawInterface $b): int => $a->getStart() <=> $b->getStart()
+            fn(RawInterface $a, RawInterface $b): int => $a->getStart() <=> $b->getStart()
         );
 
         foreach ($tagList as $key => $tag) {

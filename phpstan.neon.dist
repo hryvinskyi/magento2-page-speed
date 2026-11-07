@@ -1,0 +1,16 @@
+parameters:
+    level: 10
+    phpVersion: 80100
+    paths:
+        - Api/Html
+        - Model/Finder/Css.php
+        - Model/Finder/Js.php
+        - Model/Finder/Result/Tag.php
+        - Model/GetContentFromTag.php
+        - Model/Html/OpeningTagParser.php
+        - Test
+    bootstrapFiles:
+        - ../../../vendor/autoload.php
+    scanDirectories:
+        - ../../../generated/code
+        - ../../../dev/tests/integration/framework
